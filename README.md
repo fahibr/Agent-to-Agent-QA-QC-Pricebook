@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Pricebook QA/QC — Agent-to-Agent (A2A) Pipeline
 
 Automates master pricelist cleaning and pricebook QA/QC using two cooperating agents and a local A2A message bus. A Streamlit UI orchestrates the full run and shows handoff messages, summaries, and downloadable Excel outputs.
@@ -62,7 +62,9 @@ Combine_AI_Agents/
 ├── requirements.txt
 ├── .env                      ← Azure OpenAI credentials (not committed)
 ├── prompt/
-│   └── prompt_v3.txt         ← Agent_2 LLM instruction prompt
+│   ├── prompt_agent1.txt     ← Agent_1 LLM instruction prompt
+│   ├── prompt_v3.txt         ← Agent_2-only prompt (legacy)
+│   └── prompt_v4.txt         ← Enhanced A2A prompt (Agent_1 + Agent_2)
 ├── Agents/
 │   ├── a2a_orchestrator.py   ← CLI + pipeline runner
 │   ├── a2a_messages.py       ← message schema
@@ -152,8 +154,16 @@ Without `--llm`, tools run in **direct mode** (no LLM) — useful when Azure hit
 cd Agents
 py -3.12 agent_1.py
 py -3.12 agent_2.py          # direct Step 1 + Step 2
-py -3.12 agent_2.py --agent  # LLM + prompt_v3.txt
+py -3.12 agent_2.py --agent  # LLM + prompt_v4.txt
 ```
+
+### Prompts
+
+| File | Used by | Role |
+|------|---------|------|
+| `prompt/prompt_agent1.txt` | Agent_1 LLM | Master clean → export `active_price_list.xlsx` → HANDOFF |
+| `prompt/prompt_v3.txt` | Legacy | Agent_2-only (validate + revise) |
+| `prompt/prompt_v4.txt` | Agent_2 LLM (+ A2A docs) | Enhanced full pipeline: Agent_1 then Agent_2 Steps 1–2 |
 
 ---
 
@@ -204,4 +214,4 @@ Audit logs are written under `Agents/a2a_logs/`.
 =======
 # Agent-to-Agent-QA-QC-Pricebook
 Pricebook QA/QC automation with local Agent-to-Agent (A2A) handoff: Agent_1 cleans the master list, Agent_2 validates and corrects the pricebook (Streamlit + Azure OpenAI).
->>>>>>> 5ae9e5b6f47f7bb3ac3279600ed25dc2f93efaa2
+

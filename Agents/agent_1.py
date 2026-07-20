@@ -75,6 +75,44 @@ STRING_COLUMNS = [
 # Cache the merged DataFrame to avoid reprocessing
 _cached_df: pd.DataFrame | None = None
 
+# Agent_1 LLM prompt (project root / prompt / prompt_agent1.txt)
+_PROMPT_CANDIDATES = [
+    os.path.join(os.path.dirname(__file__), "..", "prompt", "prompt_agent1.txt"),
+    os.path.join("prompt", "prompt_agent1.txt"),
+]
+
+
+def load_prompt(path: str | None = None) -> str:
+    """Load Agent_1 instruction prompt from disk (UTF-8)."""
+    candidates = [path] if path else _PROMPT_CANDIDATES
+    for candidate in candidates:
+        if not candidate:
+            continue
+        resolved = os.path.abspath(candidate)
+        if os.path.isfile(resolved):
+            with open(resolved, encoding="utf-8") as prompt_file:
+                return prompt_file.read().strip()
+    raise FileNotFoundError(
+        "Agent_1 prompt not found. Expected prompt/prompt_agent1.txt"
+    )
+
+
+def _build_agent1_user_message(
+    master_path: str,
+    output_path: str,
+) -> str:
+    """Combine prompt_agent1.txt with run-specific file paths."""
+    base = load_prompt()
+    return (
+        f"{base}\n\n"
+        "------------------------------------------------------------\n"
+        "RUN PARAMETERS\n"
+        "------------------------------------------------------------\n"
+        f"- Master Excel path: {master_path}\n"
+        f"- Export active list to: {output_path}\n"
+        "Use these paths when calling tools.\n"
+    )
+
 # Utility function to normalize missing/blank finish values
 def _fill_blank_finish(series: pd.Series) -> pd.Series:
     """Normalize missing/blank finish values to a dash."""
@@ -480,20 +518,42 @@ def _agent_1_counts(df: pd.DataFrame | None) -> dict:
     if df is None or df.empty:
         return {
             "active_count": 0,
-            "discontinued_removed": 0,
             "new_count": 0,
             "updated_count": 0,
         }
     return {
         "active_count": int((df["Status"] == "Active").sum()) if "Status" in df.columns else len(df),
-        "discontinued_removed": int((df["Status"] == "Discontinued").sum())
-        if "Status" in df.columns
-        else 0,
         "new_count": int((df["Is_New"] == "New").sum()) if "Is_New" in df.columns else 0,
         "updated_count": int((df["Updated_Fields"] != "").sum())
         if "Updated_Fields" in df.columns
         else 0,
     }
+
+
+def _count_discontinued(df: pd.DataFrame | None) -> int:
+    """Count Discontinued rows (must be called before remove_discontinued_models)."""
+    if df is None or df.empty or "Status" not in df.columns:
+        return 0
+    return int((df["Status"] == "Discontinued").sum())
+
+
+def _parse_discontinued_from_summary(summary: str) -> int | None:
+    """Best-effort extract discontinued count from LLM / tool summary text."""
+    import re
+
+    if not summary:
+        return None
+    patterns = [
+        r"discontinued_removed\s*[:=]\s*(\d+)",
+        r"[Rr]emoved\s+(\d+)\s+discontinued",
+        r"[Dd]iscontinued\s*[:=]\s*(\d+)",
+        r"(\d+)\s+discontinued\s+removed",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, summary)
+        if match:
+            return int(match.group(1))
+    return None
 
 
 def run_agent_1(
@@ -509,20 +569,19 @@ def run_agent_1(
     """
     global _cached_df
 
+    # Always load once first so we can count discontinued BEFORE removal.
+    # After remove_discontinued_models, Status is all Active and the count is lost.
+    load_price_list.invoke({"path": master_path})
+    discontinued_before = _count_discontinued(_get_dataframe(master_path))
+
     if use_llm:
+        prompt = _build_agent1_user_message(master_path, output_path)
         response = agent.invoke(
             {
                 "messages": [
                     (
                         "human",
-                        "You are Agent 1: Check Clean Master Pricelist.\n"
-                        "Your task is to check the master pricelist after removing discontinued products.\n\n"
-                        f"Use master file: {master_path}\n"
-                        f"Export active products to: {output_path}\n\n"
-                        "Output requirements:\n"
-                        "- Summarize the number of products in each category (new, updated, discontinued).\n"
-                        f"- Generate an Excel output file {output_path}. "
-                        "This file should contain only the active and new products.\n"
+                        prompt,
                     )
                 ]
             }
@@ -530,41 +589,29 @@ def run_agent_1(
         llm_summary = response["messages"][-1].content
         # Ensure artifact exists even if the LLM skipped the export tool.
         if not os.path.isfile(output_path):
-            load_price_list.invoke({"path": master_path})
-            remove_discontinued_models.invoke({"path": master_path})
+            # Cache may still hold pre-removal rows if LLM skipped tools.
+            if _count_discontinued(_cached_df) > 0:
+                remove_discontinued_models.invoke({"path": master_path})
             export_active_list.invoke({"output_path": output_path, "path": master_path})
+        # Prefer pre-removal count; fall back to parsing the LLM summary.
+        parsed = _parse_discontinued_from_summary(str(llm_summary))
+        if discontinued_before == 0 and parsed is not None:
+            discontinued_before = parsed
     else:
-        load_msg = load_price_list.invoke({"path": master_path})
-        # Capture discontinued count before removal.
-        df_before = _get_dataframe(master_path)
-        discontinued_before = 0
-        if df_before is not None and "Status" in df_before.columns:
-            discontinued_before = int((df_before["Status"] == "Discontinued").sum())
-
         remove_msg = remove_discontinued_models.invoke({"path": master_path})
         export_msg = export_active_list.invoke(
             {"output_path": output_path, "path": master_path}
         )
+        # load_price_list already ran above; include its effect in the summary.
+        load_msg = (
+            f"Loaded master from {master_path}. "
+            f"Discontinued before removal: {discontinued_before}."
+        )
         llm_summary = f"{load_msg}\n{remove_msg}\n{export_msg}"
-        # Prefer pre-removal discontinued count for the handoff.
-        counts = _agent_1_counts(_cached_df)
-        counts["discontinued_removed"] = discontinued_before
-        payload = {
-            "artifact_path": os.path.abspath(output_path),
-            **counts,
-            "status": "ready_for_qa" if os.path.isfile(output_path) else "failed",
-            "summary": llm_summary,
-            "master_path": os.path.abspath(master_path),
-        }
-        if payload["status"] != "ready_for_qa":
-            payload["error"] = f"Expected artifact not found: {output_path}"
-        return payload
 
     counts = _agent_1_counts(_cached_df)
-    # After remove_discontinued_models, Status is all Active — re-load raw for discontinued if needed.
-    if counts["discontinued_removed"] == 0 and os.path.isfile(output_path):
-        # In LLM path, discontinued were already removed; leave as reported by remaining df.
-        pass
+    # Never use post-removal Status for this metric — it is always 0 after cleanup.
+    counts["discontinued_removed"] = discontinued_before
 
     payload = {
         "artifact_path": os.path.abspath(output_path),
@@ -585,13 +632,7 @@ if __name__ == "__main__":
             "messages": [
                 (
                     "human",
-                    "You are Agent 1: Check Clean Master Pricelist.\n"
-                    "Your task is to check the master pricelist after removing discontinued products.\n\n"
-                    
-                    "Output requirements:\n"
-                    "- Summarize the number of products in each category (new, updated, discontinued).\n"
-                    "- Generate an Excel output file active_price_list.xlsx. This file should contain only the active and new products.\n"
-                
+                    _build_agent1_user_message(DEFAULT_EXCEL_PATH, "active_price_list.xlsx"),
                 )
             ]
         }

@@ -1,0 +1,122 @@
+A2A Pricebook QA/QC pipeline (enhanced).
+
+This prompt covers both agents in sequence for documentation and
+full-pipeline LLM runs. In the local A2A system:
+  - Agent_1 uses tools in prompt/prompt_agent1.txt
+  - Agent_2 uses Steps 1–2 below (evolved from prompt_v3.txt)
+
+Orchestrator order (do not skip, do not reverse):
+  Agent_1 (master clean + export) → HANDOFF → Agent_2 (pricebook QA/QC)
+
+Do not re-implement tool logic. Use tool output for every summary.
+Prefer tool numbers over paraphrasing.
+
+================================================================================
+AGENT_1 — Clean Master Pricelist (HANDOFF producer)
+================================================================================
+Call tools in this exact order:
+1) load_price_list
+2) remove_discontinued_models
+3) list_updated_products   (optional, for summary)
+4) list_new_products       (optional, for summary)
+5) export_active_list
+
+Purpose:
+  Build a clean active master so Agent_2 can validate HardwareStandard
+  against trusted data.
+
+Rules:
+- Merge all brand sheets; normalize Model / Finish / Description / Unit / Price.
+- Status from colors: red price = Discontinued; else Active.
+- Yellow info fields = Updated_Fields; green = New.
+- Remove all Discontinued rows before export.
+- Export only active (+ new) products to active_price_list.xlsx
+  (or the output path given by the user / orchestrator).
+- Never edit the original master Excel; only write the export file.
+- Do not touch the pricebook. Do not call validate_pricebook or
+  revise_pricebook_attributes.
+
+Report from tool output:
+- Rows merged; Active / Discontinued / Updated / New counts
+- Discontinued removed; rows before / after
+- Exact artifact_path and rows exported
+- status: ready_for_qa
+
+HANDOFF payload fields to state clearly:
+  artifact_path, active_count, discontinued_removed, new_count,
+  updated_count, status=ready_for_qa
+
+Only after HANDOFF is ready, proceed to Agent_2.
+
+================================================================================
+AGENT_2 — Pricebook QA/QC (HANDOFF consumer)
+================================================================================
+Input master: Agent_1 artifact (active_price_list.xlsx), not the raw master.
+Input pricebook: path / upload provided by the user or orchestrator.
+
+Call tools in this exact order:
+1) validate_pricebook
+2) revise_pricebook_attributes
+
+------------------------------------------------------------
+STEP 1 — validate_pricebook
+------------------------------------------------------------
+Match key: Brand + Model + Finish
+(finish must match; same model + different finish = different product).
+
+For matches, compare and correct from master:
+- Product Category Code
+- Product Category
+- Description
+- Unit
+- Price
+
+Rules:
+- Not in master → leave unchanged, no highlight; report count only
+  (no product list).
+- Field mismatch → correct from master, yellow highlight, only those cells.
+- Write "… - corrected.xlsx" only if mismatches exist; keep all sheets;
+  never edit the original; no extra validation columns.
+
+Report from tool output:
+- Corrected file name (or that Step 1 skipped file creation)
+- Per corrected row: Excel row, Brand, Model, Finish, field + column,
+  pricebook vs master, yellow confirmed
+- Not In Master count only (do not list products)
+
+Then proceed to Step 2.
+
+------------------------------------------------------------
+STEP 2 — revise_pricebook_attributes
+------------------------------------------------------------
+Input: Step 1 corrected file if present, else original pricebook.
+
+Tool will:
+- Detect locale from filename (e.g. en_HK)
+- HardwareType: fill blanks with "NULL" (no highlight)
+- HardwareStandard: match HardwareType by locale + HDW_TYPE_ID
+  - ATTYPE1-4 ← ATTR_TYPE1_ID..ATTR_TYPE4_ID
+    (fill, correct, or set NULL when source ATTR is blank)
+  - DHI ← SORT_ORDER (fill or correct)
+  - Yellow highlight only HardwareStandard ATTR/DHI cells that changed
+- HardwareStandard: fill any remaining blank cells with "NULL" (no highlight)
+- Keep all sheets; never edit the original
+
+Report from tool output:
+- Locale, output file name
+- HardwareType NULL fill count
+- HardwareStandard rows updated; mapped vs unmapped HDW_TYPE_ID
+- Filled vs corrected counts for ATTYPE1-4 and DHI
+- HardwareStandard blank cells filled with NULL
+- Sample mismatch corrections
+
+================================================================================
+FINAL REPLY FORMAT
+================================================================================
+1) Short Agent_1 summary (counts + artifact_path + ready_for_qa)
+2) Short Agent_2 Step 1 summary
+3) Short Agent_2 Step 2 summary
+
+One summary block per stage — do not duplicate the same text twice.
+If a stage was already completed by another agent in the A2A bus,
+summarize from the HANDOFF / QA_RESULT payload instead of re-running tools.

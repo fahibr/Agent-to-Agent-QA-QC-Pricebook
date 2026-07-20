@@ -42,12 +42,27 @@ def _init_state() -> None:
         st.session_state.uploaded_pricebook_path = None
 
 
-def _save_uploaded_pricebook(uploaded_file) -> str:
-    """Persist an uploaded pricebook under project uploads/ and return its path."""
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    dest = UPLOAD_DIR / uploaded_file.name
-    dest.write_bytes(uploaded_file.getbuffer())
-    return str(dest.resolve())
+def _handoff_discontinued(handoff: dict) -> int | str:
+    """Prefer structured count; fall back to parsing Agent_1 summary text."""
+    import re
+
+    value = handoff.get("discontinued_removed")
+    if isinstance(value, int) and value > 0:
+        return value
+    if isinstance(value, int) and value == 0:
+        summary = str(handoff.get("summary") or "")
+        for pattern in (
+            r"discontinued_removed\s*[:=]\s*(\d+)",
+            r"[Rr]emoved\s+(\d+)\s+discontinued",
+            r"(\d+)\s+discontinued\s+removed",
+        ):
+            match = re.search(pattern, summary)
+            if match:
+                parsed = int(match.group(1))
+                if parsed > 0:
+                    return parsed
+        return 0
+    return value if value is not None else "—"
 
 
 def _file_download_button(label: str, path: str | None, key: str) -> None:
@@ -187,7 +202,7 @@ def main() -> None:
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Active products", handoff.get("active_count", "—"))
-        c2.metric("Discontinued removed", handoff.get("discontinued_removed", "—"))
+        c2.metric("Discontinued removed", _handoff_discontinued(handoff))
         c3.metric("New products", handoff.get("new_count", "—"))
         c4.metric("Updated fields", handoff.get("updated_count", "—"))
 

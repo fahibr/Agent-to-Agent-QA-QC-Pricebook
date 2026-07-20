@@ -1,8 +1,15 @@
-Run the pricebook pipeline. Call tools in this exact order:
+Run the pricebook pipeline (Agent_2 only).
+
+Prerequisite: Agent_1 HANDOFF must already be complete.
+Use active_price_list.xlsx from Agent_1 as the master (not the raw master file).
+See prompt_agent1.txt for Agent_1 and prompt_v4.txt for the full A2A pipeline.
+
+Call tools in this exact order:
 1) validate_pricebook
 2) revise_pricebook_attributes
 
 Do not re-implement tool logic. Use tool output for your summary.
+Do not call Agent_1 tools.
 
 ------------------------------------------------------------
 STEP 1 — validate_pricebook
@@ -51,4 +58,4 @@ Report from tool output:
 - HardwareStandard blank cells filled with NULL
 - Sample mismatch corrections
 
-Final reply: short Step 1 summary, then short Step 2 summary. Prefer tool numbers over paraphrasing.
+Final reply: short Step 1 summary, then short Step 2 summary (once each). Prefer tool numbers over paraphrasing.

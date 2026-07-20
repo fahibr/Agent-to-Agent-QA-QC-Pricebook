@@ -64,7 +64,7 @@ def _ensure_project_env() -> None:
     env_path = PROJECT_ROOT / ".env"
     load_dotenv(env_path)
     load_dotenv()  # also allow cwd override
-    # Prompt path in agent_2 is relative: prompt/prompt_v3.txt
+    # Prompt path in agent_2 is relative: prompt/prompt_v4.txt
     # Excel defaults also live at project root.
     os.chdir(PROJECT_ROOT)
 

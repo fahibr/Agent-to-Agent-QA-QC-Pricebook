@@ -16,7 +16,7 @@ This script merges two previously separate steps into one runnable flow:
 How to run
 ----------
   python file.py          # default: direct Step 1 + Step 2 (no LLM)
-  python file.py --agent  # LangChain agent + prompt_v3.txt (uses Azure OpenAI)
+  python file.py --agent  # LangChain agent + prompt_v4.txt (uses Azure OpenAI)
 
 Direct mode is the default for testing so Azure rate limits (429) do not
 block Excel validation. With --agent, a 429 automatically falls back to
@@ -69,8 +69,8 @@ PRICEBOOK_EXCEL_PATH = "AD_July2026 (en_HK).xlsx"
 # Master / active price list used by Step 1 validation.
 MASTER_PRICE_LIST = "active_price_list.xlsx"
 
-# Combined prompt that instructs the agent to run Step 1 then Step 2.
-PROMPT_PATH = os.path.join("prompt", "prompt_v3.txt")
+# Combined A2A prompt (Agent_1 handoff + Agent_2 QA/QC). Evolved from prompt_v3.
+PROMPT_PATH = os.path.join("prompt", "prompt_v4.txt")
 
 # Worksheet names used by both steps.
 HARDWARE_STANDARD_SHEET = "HardwareStandard"
@@ -1049,7 +1049,7 @@ model = AzureChatOpenAI(
     timeout=float(os.getenv("AZURE_OPENAI_TIMEOUT", "120")),
 )
 
-# Agent can call Step 1 then Step 2 (prompt_v3 instructs that order).
+# Agent can call Agent_2 Step 1 then Step 2 (prompt_v4 documents full A2A order).
 tools = [
     validate_pricebook,            # Step 1
     revise_pricebook_attributes,   # Step 2
@@ -1090,21 +1090,44 @@ def run_pipeline_direct():
 
 def run_pipeline_with_agent():
     """
-    Run the LangChain agent using prompt_v3.txt (uses Azure OpenAI).
+    Run the LangChain agent using prompt_v4.txt (uses Azure OpenAI).
 
     On rate-limit (429), falls back to direct Step 1 + Step 2 so the
     Excel pipeline still completes.
+
+    Agent_2 only has validate_pricebook + revise_pricebook_attributes, so
+    the full A2A prompt is scoped to the Agent_2 section at runtime.
     """
     from openai import RateLimitError
 
-    prompt = load_prompt()
+    full_prompt = load_prompt()
+    agent2_prompt = f"""
+You are Agent_2 in the A2A pricebook QA/QC pipeline.
+Agent_1 has already completed HANDOFF (active_price_list.xlsx is ready).
+Do NOT call Agent_1 tools (load_price_list, remove_discontinued_models,
+export_active_list, list_updated_products, list_new_products).
+
+Call ONLY these tools in order:
+1) validate_pricebook
+2) revise_pricebook_attributes
+
+Follow the AGENT_2 section of the pipeline prompt below.
+Final reply: one short Step 1 summary, then one short Step 2 summary.
+Do not duplicate the same text twice.
+
+================================================================================
+PIPELINE PROMPT (prompt_v4)
+================================================================================
+{full_prompt}
+""".strip()
+
     try:
         response = agent.invoke(
             {
                 "messages": [
                     (
                         "human",
-                        prompt,
+                        agent2_prompt,
                     )
                 ]
             }
