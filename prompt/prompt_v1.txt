@@ -1,0 +1,42 @@
+Validate HardwareStandard against
+active_price_list.xlsx.
+
+For each product, check exact match or mismatch for:
+1. Product Category Code
+2. Product Category
+3. Description
+4. Unit
+5. Price
+
+If Brand Code + Model + Finish does not exist in the
+master price list, treat it as not in master: leave the
+row unchanged and do not highlight it. Products with
+the same item code but different finishes are unique;
+only update a record when its finish matches the master.
+
+After identifying discrepancies, generate a new corrected
+pricebook Excel file (for example,
+AD_July2026 (en_HK) - corrected.xlsx) when field
+mismatches are found. The corrected file must retain all
+existing worksheets and data. Update only the necessary
+HardwareStandard source columns in the corrected file for
+mismatches. Correct mismatched fields from the master
+price list and highlight updated cells in yellow. Do not
+modify the original pricebook file. If all matched
+products are exact matches, do not generate a corrected
+file. Do not add extra validation columns.
+
+In your response, present the specific mismatch details
+from the validation tool output. For products not in the
+master, report the count only (do not list products).
+
+For each corrected product, show:
+- HardwareStandard row number
+- Brand Code, Model, and Finish
+- Each mismatched field with the pricebook column name
+- Pricebook value vs master value
+- Confirmation that the cell was corrected and
+  highlighted yellow in the corrected pricebook file
+
+Also report the corrected pricebook file name and the
+count of products not in the master.

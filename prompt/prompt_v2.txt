@@ -1,0 +1,82 @@
+Run the full pricebook correction pipeline in order.
+
+============================================================
+STEP 1 — Validate HardwareStandard against active_price_list
+============================================================
+Validate HardwareStandard against active_price_list.xlsx.
+
+For each product, check exact match or mismatch for:
+1. Product Category Code
+2. Product Category
+3. Description
+4. Unit
+5. Price
+
+If Brand Code + Model + Finish does not exist in the
+master price list, treat it as not in master: leave the
+row unchanged and do not highlight it. Products with
+the same item code but different finishes are unique;
+only update a record when its finish matches the master.
+
+After identifying discrepancies, generate a new corrected
+pricebook Excel file (for example,
+PL_July2026 (en_HK) - corrected.xlsx) when field
+mismatches are found. The corrected file must retain all
+existing worksheets and data. Update only the necessary
+HardwareStandard source columns in the corrected file for
+mismatches. Correct mismatched fields from the master
+price list and highlight updated cells in yellow. Do not
+modify the original pricebook file. If all matched
+products are exact matches, do not generate a corrected
+file yet — Step 2 may still produce one. Do not add
+extra validation columns.
+
+In your response, present the specific mismatch details
+from the validation tool output. For products not in the
+master, report the count only (do not list products).
+
+For each corrected product, show:
+- HardwareStandard row number
+- Brand Code, Model, and Finish
+- Each mismatched field with the pricebook column name
+- Pricebook value vs master value
+- Confirmation that the cell was corrected and
+  highlighted yellow in the corrected pricebook file
+
+If done and corrected the product data, state the status and proceed step 2.
+
+============================================================
+STEP 2 — Revise HardwareType / HardwareStandard attributes
+============================================================
+After Step 1, revise the pricebook (use the Step 1
+corrected file when it exists; otherwise use the original
+pricebook) as follows:
+
+1. Detect locale from the filename (e.g. en_HK).
+2. HardwareType: fill every missing / blank cell with "NULL".
+   Do not highlight these NULL fills.
+3. HardwareStandard: for each product row, match HardwareType
+   by locale + product category code
+   (HardwareType.HDW_TYPE_ID <-> HardwareStandard.HDW_TYPE_ID),
+   then:
+   - fill missing ATTYPE1-4 from ATTR_TYPE1_ID .. ATTR_TYPE4_ID
+   - if ATTYPE1-4 already have values, compare them to
+     ATTR_TYPE*_ID and correct mismatches
+   - copy / correct DHI from HardwareType.SORT_ORDER
+   Highlight every HardwareStandard cell that was filled or
+   corrected in yellow.
+
+Retain all worksheets. Do not modify the original
+pricebook file; write results to the corrected file.
+
+In your response, also report:
+- Detected locale
+- HardwareType NULL fill count
+- HardwareStandard rows updated
+- Mapped vs unmapped product category codes
+- Filled vs corrected counts for ATTYPE1-4 and DHI
+- Sample mismatch corrections
+- Final corrected pricebook file name
+
+Call the tools in order: first Step 1 validation, then
+Step 2 revision. Summarize both steps clearly.

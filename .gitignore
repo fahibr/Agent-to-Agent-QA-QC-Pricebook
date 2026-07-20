@@ -1,0 +1,8 @@
+.env
+*.env
+__pycache__/
+.env.local
+main - backup.py
+a2a_logs/
+*.jsonl
+uploads/

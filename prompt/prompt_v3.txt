@@ -1,0 +1,54 @@
+Run the pricebook pipeline. Call tools in this exact order:
+1) validate_pricebook
+2) revise_pricebook_attributes
+
+Do not re-implement tool logic. Use tool output for your summary.
+
+------------------------------------------------------------
+STEP 1 — validate_pricebook
+------------------------------------------------------------
+Match key: Brand + Model + Finish (finish must match; same model + different finish = different product).
+
+For matches, compare and correct from master:
+- Product Category Code
+- Product Category
+- Description
+- Unit
+- Price
+
+Rules:
+- Not in master → leave unchanged, no highlight; report count only (no product list).
+- Field mismatch → correct from master, yellow highlight, only those cells.
+- Write "… - corrected.xlsx" only if mismatches exist; keep all sheets; never edit the original; no extra validation columns.
+
+Report from tool output:
+- Corrected file name (or that Step 1 skipped file creation)
+- Per corrected row: Excel row, Brand, Model, Finish, field + column, pricebook vs master, yellow confirmed
+- Not In Master count only (do not list products)
+
+Then proceed to Step 2.
+
+------------------------------------------------------------
+STEP 2 — revise_pricebook_attributes
+------------------------------------------------------------
+Input: Step 1 corrected file if present, else original.
+
+Tool will:
+- Detect locale from filename
+- HardwareType: fill blanks with "NULL" (no highlight)
+- HardwareStandard: match HardwareType by locale + HDW_TYPE_ID
+  - ATTYPE1-4 ← ATTR_TYPE1_ID..ATTR_TYPE4_ID (fill, correct, or set NULL when source ATTR is blank)
+  - DHI ← SORT_ORDER (fill or correct)
+  - Yellow highlight only HardwareStandard ATTR/DHI cells that changed
+- HardwareStandard: fill any remaining blank cells with "NULL" (no highlight)
+- Keep all sheets; never edit the original
+
+Report from tool output:
+- Locale, output file name
+- HardwareType NULL fill count
+- HardwareStandard rows updated; mapped vs unmapped HDW_TYPE_ID
+- Filled vs corrected counts for ATTYPE1-4 and DHI
+- HardwareStandard blank cells filled with NULL
+- Sample mismatch corrections
+
+Final reply: short Step 1 summary, then short Step 2 summary. Prefer tool numbers over paraphrasing.
