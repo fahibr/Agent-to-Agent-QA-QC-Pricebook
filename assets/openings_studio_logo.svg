@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="120" viewBox="0 0 520 120" role="img" aria-label="Openings Studio">
+  <!-- Light-theme Openings Studio mark (blue icon + dark text for white backgrounds) -->
+  <circle cx="52" cy="56" r="40" fill="#4DA3FF"/>
+  <!-- Stylized open-door panels -->
+  <g stroke="#111111" stroke-width="2.5" fill="#4DA3FF">
+    <path d="M28 42 L42 36 L42 92 L28 86 Z"/>
+    <path d="M44 40 L58 34 L58 94 L44 88 Z"/>
+    <path d="M60 38 L74 32 L74 96 L60 90 Z"/>
+  </g>
+  <text x="110" y="70" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="42" font-weight="600" fill="#1A1A1A">Openings Studio</text>
+</svg>

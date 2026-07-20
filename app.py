@@ -31,6 +31,80 @@ from a2a_orchestrator import (
 
 DEFAULT_MASTER = str(PROJECT_ROOT / "HK Master Price List - July 2026 OS_CLEANED.xlsm")
 DEFAULT_OUTPUT = str(PROJECT_ROOT / "active_price_list.xlsx")
+LOGO_PATH = PROJECT_ROOT / "assets" / "openings_studio_logo.png"
+
+AGENT_ICON_PATH = {
+    "Agent_1": PROJECT_ROOT / "assets" / "agent_1_icon.png",
+    "Agent_2": PROJECT_ROOT / "assets" / "agent_2_icon.png",
+}
+
+AGENT_SUBTITLE = {
+    "Agent_1": "Master Clean",
+    "Agent_2": "Pricebook QA/QC",
+}
+
+
+def _apply_light_theme() -> None:
+    """Force a white page background and light sidebar (in addition to config.toml)."""
+    st.markdown(
+        """
+        <style>
+        /* Main app + sidebar white / light surfaces */
+        .stApp {
+            background-color: #FFFFFF;
+            color: #1A1A1A;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #F5F7FA;
+        }
+        [data-testid="stSidebar"] * {
+            color: #1A1A1A;
+        }
+        [data-testid="stHeader"] {
+            background-color: #FFFFFF;
+        }
+        /* Keep primary actions readable on white */
+        div.stButton > button[kind="primary"] {
+            background-color: #E31C23;
+            border-color: #E31C23;
+            color: #FFFFFF;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_brand() -> None:
+    """Show Openings Studio logo at the top of the sidebar."""
+    if LOGO_PATH.is_file():
+        st.image(str(LOGO_PATH), use_container_width=True)
+    else:
+        st.markdown("### Openings Studio")
+    st.caption("Pricebook A2A QA/QC")
+
+
+def _render_agent_card(name: str, card: dict) -> None:
+    """Sidebar agent card with professional icon + expandable details."""
+    icon_path = AGENT_ICON_PATH.get(name)
+    subtitle = AGENT_SUBTITLE.get(name, "")
+
+    icon_col, text_col = st.columns([1, 3.2])
+    with icon_col:
+        if icon_path and icon_path.is_file():
+            st.image(str(icon_path), width=48)
+    with text_col:
+        st.markdown(f"**{name}**")
+        st.caption(subtitle)
+
+    with st.expander("Details", expanded=False):
+        st.write(card.get("description", ""))
+        st.markdown("**Skills**")
+        st.write(", ".join(card.get("skills") or []))
+        st.markdown("**Inputs**")
+        st.write(", ".join(card.get("inputs") or []))
+        st.markdown("**Outputs**")
+        st.write(", ".join(card.get("outputs") or []))
 
 
 def _init_state() -> None:
@@ -40,6 +114,14 @@ def _init_state() -> None:
         st.session_state.message_log = []
     if "uploaded_pricebook_path" not in st.session_state:
         st.session_state.uploaded_pricebook_path = None
+
+
+def _save_uploaded_pricebook(uploaded_file) -> str:
+    """Persist an uploaded pricebook under project uploads/ and return its path."""
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = UPLOAD_DIR / uploaded_file.name
+    dest.write_bytes(uploaded_file.getbuffer())
+    return str(dest.resolve())
 
 
 def _handoff_discontinued(handoff: dict) -> int | str:
@@ -95,32 +177,30 @@ def _render_messages(messages: list[dict]) -> None:
 
 
 def main() -> None:
+    page_icon = str(LOGO_PATH) if LOGO_PATH.is_file() else "📋"
     st.set_page_config(
-        page_title="Pricebook A2A QA/QC",
-        page_icon="📋",
+        page_title="Openings Studio — Pricebook A2A QA/QC",
+        page_icon=page_icon,
         layout="wide",
+        initial_sidebar_state="expanded",
     )
+    _apply_light_theme()
     _init_state()
+
+    with st.sidebar:
+        _render_brand()
+        st.divider()
+        st.header("Agent cards")
+        for name, card in AGENT_CARDS.items():
+            _render_agent_card(name, card)
+        st.divider()
+        st.caption(f"Project root: `{ORCH_ROOT}`")
 
     st.title("Pricebook A2A QA/QC")
     st.caption(
         "Local Agent-to-Agent pipeline: Agent_1 cleans the master list, "
         "then hands off to Agent_2 for pricebook validation and attribute revise."
     )
-
-    with st.sidebar:
-        st.header("Agent cards")
-        for name, card in AGENT_CARDS.items():
-            with st.expander(name, expanded=False):
-                st.write(card.get("description", ""))
-                st.markdown("**Skills**")
-                st.write(", ".join(card.get("skills") or []))
-                st.markdown("**Inputs**")
-                st.write(", ".join(card.get("inputs") or []))
-                st.markdown("**Outputs**")
-                st.write(", ".join(card.get("outputs") or []))
-        st.divider()
-        st.caption(f"Project root: `{ORCH_ROOT}`")
 
     col_a, col_b = st.columns(2)
     with col_a:

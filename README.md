@@ -60,6 +60,10 @@ Original files are never overwritten. Corrections go to `* - corrected.xlsx`.
 
 ```text
 AI_Agents/
+├── assets/
+│   └── openings_studio_logo.png  ← sidebar brand (light theme)
+├── .streamlit/
+│   └── config.toml               ← white / light theme
 ├── README.md
 ├── app.py                 ← Streamlit UI (run from here)
 ├── requirements.txt
