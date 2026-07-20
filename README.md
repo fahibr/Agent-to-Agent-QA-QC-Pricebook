@@ -79,6 +79,35 @@ Combine_AI_Agents/
 └── *.xlsx / *.xlsm
 ```
 
+### `Agents/` — what each file does
+
+| File / folder | Role |
+|---------------|------|
+| **`a2a_orchestrator.py`** | Pipeline coordinator. Sends `TASK_START` to Agent_1, waits for **HANDOFF** (`active_price_list.xlsx` + counts), then starts Agent_2. Stops on `ERROR` (does not call Agent_2 if handoff fails). Also provides CLI flags (`--agent1-only`, `--agent2-only`, `--llm`). |
+| **`a2a_messages.py`** | Message schema for local A2A: types (`TASK_START`, `HANDOFF`, `QA_RESULT`, `STATUS`, `ERROR`), sender/recipient, payload, `correlation_id`, timestamp. |
+| **`a2a_bus.py`** | In-memory message bus. Publishes/stores the timeline shown in Streamlit and optionally writes a JSONL audit file under `a2a_logs/`. |
+| **`agent_1.py`** | Master pricelist agent. Tools: load → remove discontinued → export active list. Uses `prompt/prompt_agent1.txt` in LLM mode. Returns the HANDOFF payload (including `discontinued_removed` counted *before* removal). |
+| **`agent_2.py`** | Pricebook QA/QC agent. Tools: `validate_pricebook` then `revise_pricebook_attributes`. Uses `prompt/prompt_v4.txt` (scoped to Agent_2 tools). Writes `* - corrected.xlsx`. |
+| **`a2a_logs/`** | Per-run audit logs (`a2a_*.jsonl`) of every bus message for debugging and traceability. |
+
+### How they connect
+
+```text
+app.py  ──►  a2a_orchestrator.py
+                    │
+                    ├── publishes via a2a_bus.py (messages from a2a_messages.py)
+                    │
+                    ├── calls agent_1.py  →  HANDOFF + active_price_list.xlsx
+                    │
+                    └── calls agent_2.py  →  QA_RESULT + *-corrected.xlsx
+                                              │
+                                              └── timeline + logs → UI / a2a_logs/
+```
+
+- **`app.py`** (project root) is the UI only; it does not contain Excel logic.  
+- **`uploads/`** stores pricebooks chosen in the Streamlit file uploader before Agent_2 reads them.  
+- **`prompt/`** holds LLM instructions; agents load them at runtime (not the orchestrator).
+
 ---
 
 ## Setup
