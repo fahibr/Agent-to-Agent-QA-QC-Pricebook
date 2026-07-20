@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Pricebook QA/QC — Agent-to-Agent (A2A) Pipeline
 
 Automates master pricelist cleaning and pricebook QA/QC using two cooperating agents and a local A2A message bus. A Streamlit UI orchestrates the full run and shows handoff messages, summaries, and downloadable Excel outputs.
@@ -200,3 +201,7 @@ Audit logs are written under `Agents/a2a_logs/`.
 - Place master and pricebook workbooks in this project folder (or use absolute paths / Streamlit upload).  
 - Corrected pricebooks keep all worksheets; validation helper columns are stripped.  
 - LLM mode uses Azure deployments from `.env`; direct mode still performs the Excel work without calling the model for orchestration.
+=======
+# Agent-to-Agent-QA-QC-Pricebook
+Pricebook QA/QC automation with local Agent-to-Agent (A2A) handoff: Agent_1 cleans the master list, Agent_2 validates and corrects the pricebook (Streamlit + Azure OpenAI).
+>>>>>>> 5ae9e5b6f47f7bb3ac3279600ed25dc2f93efaa2
