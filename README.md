@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> 591411665dbd82dd2614b08f0c91dab89269c543
 # Pricebook QA/QC — Agent-to-Agent (A2A) Pipeline
 
 Automates master pricelist cleaning and pricebook QA/QC using two cooperating agents and a local A2A message bus. A Streamlit UI orchestrates the full run and shows handoff messages, summaries, and downloadable Excel outputs.
