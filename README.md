@@ -59,7 +59,7 @@ Original files are never overwritten. Corrections go to `* - corrected.xlsx`.
 ## Project layout
 
 ```text
-Combine_AI_Agents/
+AI_Agents/
 ├── README.md
 ├── app.py                 ← Streamlit UI (run from here)
 ├── requirements.txt
